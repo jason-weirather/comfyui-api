@@ -47,6 +47,45 @@
       "description": "Denoise strength",
       "minimum": 1,
       "maximum": 30
+    },
+    "content_filter": {
+      "type": "object",
+      "description": "Optional NSFW filter settings",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 2,
+          "description": "NSFW severity level required to trigger filtering, 0: no filter, 1: NSFW filter, 2: Explicit filter"
+        },
+        "probability": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.5,
+          "description": "Minimum score probability threshold to include label"
+        },
+        "blur": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to apply Gaussian blur to content that matches the filtering criteria"
+        },
+        "gaussian_blur_minimum": {
+          "type": "number",
+          "minimum": 0,
+          "default": 20,
+          "description": "Minimum number of pixels to use as a blur radius"
+        },
+        "gaussian_blur_fraction": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.05,
+          "description": "Fraction of the largest image dimension to use for Gaussian blur radius"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["prompt"],

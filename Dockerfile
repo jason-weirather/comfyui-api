@@ -17,6 +17,10 @@ RUN cp /usr/local/bin/_activate_current_env.sh /etc/profile.d/activate_mamba.sh 
 # Ensure it is sourced for all users by adding it to profile.d (global for bash users)
 RUN echo "source /etc/profile.d/activate_mamba.sh" >> /etc/bash.bashrc
 
+# Install Networking Tools
+RUN apt-get update && apt-get install -y iputils-ping net-tools && \
+    rm -rf /var/lib/apt/lists/*
+
 USER mambauser
 
 # Install PyTorch with CUDA using micromamba run (so we don’t need to activate the base environment manually)

@@ -14,6 +14,8 @@ import importlib.resources as pkg_resources
 from threading import Lock, Thread
 import subprocess
 
+from comfyui_image_api.nsfw_filter import apply_nsfw_filter
+
 from comfyui_image_api import __version__
 
 app = Flask(__name__)
@@ -113,6 +115,16 @@ def generate():
     else:
         seed = data.get("seed")
 
+    nsfw = data.get("content_filter",{})
+
+    nsfw_filter = {
+        "level": nsfw.get("level", generate_schema["properties"]["content_filter"]["properties"]["level"]["default"]),
+        "probability": nsfw.get("probability", generate_schema["properties"]["content_filter"]["properties"]["probability"]["default"]),
+        "blur": nsfw.get("blur", generate_schema["properties"]["content_filter"]["properties"]["probability"]["default"]),
+        "gaussian_blur_minimum": nsfw.get("gaussian_blur_minimum", generate_schema["properties"]["content_filter"]["properties"]["gaussian_blur_minimum"]["default"]),
+        "gaussian_blur_fraction": nsfw.get("gaussian_blur_fraction", generate_schema["properties"]["content_filter"]["properties"]["gaussian_blur_fraction"]["default"])
+    }
+
     processed_data = {
         "prompt": data.get("prompt", ""),
         "seed": seed,
@@ -120,7 +132,8 @@ def generate():
         "height": data.get("height", generate_schema["properties"]["height"]["default"]),
         "steps": data.get("steps", generate_schema["properties"]["steps"]["default"]),
         "cfg": data.get("cfg", generate_schema["properties"]["cfg"]["default"]),
-        "denoise": data.get("denoise", generate_schema["properties"]["denoise"]["default"])
+        "denoise": data.get("denoise", generate_schema["properties"]["denoise"]["default"]),
+        "content_filter":nsfw_filter
     }
 
     # Lock queue operations
@@ -167,6 +180,14 @@ def process_job(data):
             if not image_path:
                 raise Exception("Image not generated in time.")
 
+            # Apply NSFW filtering if configured
+            nsfw_settings = data.get("content_filter", {})
+            max_score, labels_triggered = apply_nsfw_filter(
+                image_path,
+                nsfw_settings
+            )
+            blurred = nsfw_settings.get("blur", True) and max_score >= nsfw_settings["level"] and nsfw_settings["level"] > 0
+
             # Read the image and encode it in base64
             with open(image_path, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
@@ -176,7 +197,15 @@ def process_job(data):
                 job_queue.remove(data)
 
             # Return the base64-encoded image in the response
-            return jsonify({"status": "success", "image": encoded_string}), 200
+            return jsonify({
+                "status": "success",
+                "image": encoded_string,
+                "content_filter": {
+                    "max_score":max_score,
+                    "labels": labels_triggered,
+                    "blurred": blurred
+                }
+            }), 200
 
     except Exception as e:
         print(f"Error occurred: {e}")
