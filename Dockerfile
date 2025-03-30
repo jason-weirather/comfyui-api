@@ -59,8 +59,14 @@ RUN micromamba run -n base comfy \
         --no-enable-telemetry tracking disable
 
 USER root
-# Copy the entire repository into the container
-ADD . /opt/comfyui-image-api
+# Copy the required repository into the container
+ADD ./src /opt/comfyui-image-api/src
+ADD pyproject.toml /opt/comfyui-image-api/pyproject.toml
+ADD start.sh /opt/comfyui-image-api/start.sh
+ADD README.md /opt/comfyui-image-api/README.md
+ADD LICENSE /opt/comfyui-image-api/LICENSE
+
+
 # Set permissions for the copied files
 RUN chmod -R 777 /opt/comfyui-image-api
 

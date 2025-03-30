@@ -7,7 +7,8 @@ name = "comfyui_image_api"
 version = "0.2.0"
 description = "An API to generate images using Stable Diffusion and ComfyUI"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.8"
 authors = [
     { name="Jason L Weirather", email="jason.weirather@gmail.com" }
@@ -29,5 +30,6 @@ dependencies = [
 comfy-api = "comfyui_image_api.api_server:main"
 
 [tool.setuptools]
-package-data = { "comfyui_image_api" = ["Templates/*.yaml","Templates/Workflow_api_json/*.json","Schema/*.json"] }
+package-dir = { "" = "src" }
+packages = ["comfyui_image_api"]
 include-package-data = true

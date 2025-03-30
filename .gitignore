@@ -1,3 +1,8 @@
+caddy_data/*
+!caddy_data/.gitkeep
+caddy_config/*
+!caddy_config/.gitkeep
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

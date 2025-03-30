@@ -1,0 +1,3 @@
+recursive-include src/comfyui_image_api/Templates *.yaml
+recursive-include src/comfyui_image_api/Templates/Workflow_api_json *.json
+recursive-include src/comfyui_image_api/Schema *.json
