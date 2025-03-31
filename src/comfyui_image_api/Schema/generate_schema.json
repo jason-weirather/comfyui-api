@@ -25,14 +25,14 @@
       "default": 512,
       "description": "Width of the generated image",
       "minimum": 64,
-      "maximum": 1024
+      "maximum": 2212
     },
     "height": {
       "type": "integer",
       "default": 512,
       "description": "Height of the generated image",
       "minimum": 64,
-      "maximum": 1024
+      "maximum": 2212
     },
     "cfg": {
       "type": "number",

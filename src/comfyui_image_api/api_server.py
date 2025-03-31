@@ -49,7 +49,8 @@ class PublicServerConfig:
 @click.option("--comfyui-port", default=8188, help="The port to bind the ComfyUI server to.", show_default=True)
 @click.option("--output-path", help="The path to write images, if not set, a temporary directory will be created.")
 @click.option("--max-queue", default=5, help="Maximum number of image generation requests allowed in the queue.", show_default=True)
-def main(model_path, host, port, comfyui_path, comfyui_host, comfyui_port, output_path, max_queue):
+@click.option("--api-key", default=os.environ.get("COMFYUI_IMAGE_API_KEY"), help="Optional API key required for accessing the API")
+def main(model_path, host, port, comfyui_path, comfyui_host, comfyui_port, output_path, max_queue, api_key):
 
     if comfyui_path is None:
         raise click.UsageError("You must provide the --comfyui-path option or set the COMFYUI_PATH environment variable.")
@@ -78,8 +79,24 @@ def main(model_path, host, port, comfyui_path, comfyui_host, comfyui_port, outpu
     )
     print(f"ComfyRunner output directory: {app.config['output_path']}")
 
+    app.config["API_KEY"] = api_key
+
     """Run the ComfyUI Image API server."""
     app.run(host=host, port=port)
+
+@app.before_request
+def check_api_key():
+    required_key = app.config.get("API_KEY")
+    if not required_key:
+        return  # No key set, open access
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        abort(401, "Missing or invalid Authorization header")
+
+    token = auth_header.split(" ")[1]
+    if token != required_key:
+        abort(401, "Invalid API key")
 
 @app.route("/status", methods=["GET"])
 def status():
