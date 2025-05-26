@@ -20,7 +20,8 @@ dependencies = [
     "click",
     "jsonschema",
     "tomli",
-    "nudenet"
+    "nudenet",
+    "websocket-client"
 ]
 
 [project.urls]
