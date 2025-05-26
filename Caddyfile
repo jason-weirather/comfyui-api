@@ -1,6 +1,11 @@
 https://{$CADDY_HOSTNAME}:8443 {
-    tls {$CADDY_EMAIL}
-    encode gzip
+    tls {$CADDY_EMAIL}         # Auto-provision TLS via Let's Encrypt
+    encode gzip                # Enable gzip compression
+
+    # Define the matcher for the Authorization header
+    @authHeader {
+        header Authorization "Bearer {$COMFYUI_IMAGE_API_KEY}"
+    }
 
     # If the request contains the correct Authorization header, forward it
     handle @authHeader {
@@ -10,10 +15,5 @@ https://{$CADDY_HOSTNAME}:8443 {
     # Otherwise, respond with a 401 Unauthorized message
     handle {
         respond "Unauthorized" 401
-    }
-
-    # Define the matcher for the Authorization header
-    @authHeader {
-        header Authorization "Bearer {$COMFYUI_IMAGE_API_KEY}"
     }
 }
