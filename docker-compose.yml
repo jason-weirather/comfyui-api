@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   comfyapi:
-    image: vacation/comfyui-image-api:0.2.0
+    image: vacation/comfyui-image-api:dev
     container_name: comfyapi
     restart: unless-stopped
     user: "${UID}:${GID}"

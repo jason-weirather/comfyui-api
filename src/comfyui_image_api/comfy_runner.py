@@ -6,13 +6,30 @@ import tempfile
 import yaml
 import atexit
 import sys
+import logging
+import threading
+import time
 
 import importlib.resources as pkg_resources
 
+logging.basicConfig(level=logging.INFO)
+
 class ComfyRunner:
-    def __init__(self, comfyui_path, comfyui_host, comfyui_port, model_path, output_directory):
-        self.comfyui_path = comfyui_path
+    def __init__(
+        self,
+        comfyui_path,
+        comfyui_host,
+        comfyui_port,
+        model_path,
+        output_directory
+    ):
+        self.comfyui_path     = comfyui_path
         self.output_directory = output_directory
+        self.comfy_host       = comfyui_host
+        self.comfy_port       = comfyui_port
+        self.proc             = None
+        self.start_time       = None
+        self._cli_was_launched = False
 
         # Use a context manager to get the path to the extra_model_paths.yaml file
         with pkg_resources.path("comfyui_image_api.Templates", "extra_model_paths.yaml") as yaml_file_path:
@@ -22,11 +39,11 @@ class ComfyRunner:
             template_extra_models['fluxdev']['checkpoints'] = './'
 
             with tempfile.NamedTemporaryFile(mode='w+', suffix='.yaml', delete=False) as temp_yaml:
-                temp_yaml_path = temp_yaml.name
-                atexit.register(os.remove, temp_yaml_path)
+                self.temp_yaml_path = temp_yaml.name
+                atexit.register(os.remove, self.temp_yaml_path)
                 temp_yaml.write(yaml.dump(template_extra_models,indent=2))
-                print(yaml.dump(template_extra_models,indent=2))
-            print(f"Temporary yaml created at: {temp_yaml_path}")
+                temp_yaml.flush()
+            print(f"Temporary yaml created at: {self.temp_yaml_path}")
 
 
             self.extra_model_paths = str(yaml_file_path)
@@ -36,47 +53,136 @@ class ComfyRunner:
         print(self.extra_model_paths)
 
         # Disable that weird tracking thing
-        result = subprocess.run(["comfy","--skip-prompt","--no-enable-telemetry", "tracking","disable"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run(["comfy","--skip-prompt","--no-enable-telemetry", "tracking","disable"], 
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-        # Print the output
-        print("Output:")
-        print(result.stdout)
-        # Print any error messages
-        if result.stderr:
-            print("Error:")
-            print(result.stderr)
-        # Stop any currently running server
-        result = subprocess.run(["comfy","--skip-prompt","--no-enable-telemetry", "stop"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        # Print the output
-        print("Output:")
-        print(result.stdout)
-        # Print any error messages
-        if result.stderr:
-            print("Error:")
-            print(result.stderr)
-        # Start a freshly running server
-        cmd = ["comfy","--skip-prompt","--no-enable-telemetry","--workspace",comfyui_path,"launch","--background","--",
-               "--port",f"{comfyui_port}",
-               "--listen",f"{comfyui_host}",
-               "--extra-model-paths-config",temp_yaml_path,
-               "--output-directory",output_directory
-              ]
-        print(f"Starting launch workspace: {' '.join(cmd)}")
+        # Stop any previously running server
+        subprocess.run(["comfy","--skip-prompt","--no-enable-telemetry", "stop"],
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-        # Run the command and capture the output
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if result.stderr:
-            raise Exception(f"Error generating image: {result.stderr}")
+        # Start and monitor comfy-cli
+        self._launch_cli()
+        self.monitor_thread = threading.Thread(target=self._watchdog, daemon=True)
+        self.monitor_thread.start()
 
-        # Print the output
-        print("Output:")
-        print(result.stdout)
+        threading.Thread(target=self._reap_zombies_forever, daemon=True).start()
 
-        # Print any error messages
-        if result.stderr:
-            print("Error:")
-            print(result.stderr)
 
+    # ───────────────────────────────────────────────────────────────
+    # Helper: is the ComfyUI port accepting TCP?
+    # ───────────────────────────────────────────────────────────────
+    def _port_open(self) -> bool:
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            return sock.connect_ex((self.comfy_host, self.comfy_port)) == 0
+
+    # ───────────────────────────────────────────────────────────────
+    # Helper: stop any background ComfyUI that may have a stale PID
+    # ───────────────────────────────────────────────────────────────
+    def _stop_cli(self):
+        subprocess.run(
+            ["comfy", "--skip-prompt", "--no-enable-telemetry", "stop"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+
+        # also nuke orphaned python main.py (safety net)
+        subprocess.run(
+            ["pkill", "-f", "main.py.*--listen"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    # ───────────────────────────────────────────────────────────────
+    # Start ComfyUI only if its port is closed
+    # ───────────────────────────────────────────────────────────────
+    def _launch_cli(self):
+        if self._port_open():
+            logging.info("ComfyUI already listening — no launch needed.")
+            return
+
+        # make sure nothing stale is holding the port/PID file
+        self._stop_cli()
+
+        env = os.environ.copy()
+        env["COMFY_CLI_DISABLE_UPDATE_CHECK"] = "1"        # ✋ no phone-home
+
+        cmd = [
+            "comfy", "--skip-prompt", "--no-enable-telemetry",
+            "--workspace", self.comfyui_path,
+            "launch", "--background", "--",
+            "--port",  str(self.comfy_port),
+            "--listen", self.comfy_host,
+            "--extra-model-paths-config", self.temp_yaml_path,
+            "--output-directory", self.output_directory
+        ]
+        logging.info("Launching comfy-cli → %s", " ".join(cmd))
+        self.proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+        threading.Thread(target=os.wait, daemon=True).start()
+        self.start_time = time.time()
+        self._cli_was_launched = True
+
+        # Wait (max 30 s) for the port to open once
+        for _ in range(30):
+            if self._port_open():
+                logging.info("ComfyUI is now accepting connections.")
+                return
+            time.sleep(1)
+        logging.warning("ComfyUI failed to open port after 30 s.")
+
+    # ───────────────────────────────────────────────────────────────
+    # Watchdog: poll every 20 s; if port is closed try up to 3 times
+    # ───────────────────────────────────────────────────────────────
+    def _watchdog2(self):
+        retries = 0
+        while True:
+            if self.proc and self._port_open() is None:
+                logging.warning("ComfyUI port closed — attempting restart.")
+                self._launch_cli()
+                retries += 1
+                if retries > 3:
+                    logging.error("ComfyUI failed to recover after 3 attempts; giving up until next poll")
+                    retries = 0                         # reset counter
+            else:
+                retries = 0                             # healthy ⇒ reset
+            time.sleep(20)
+
+
+    def _watchdog(self):
+        retries = 0
+        while True:
+            if not self._port_open():
+                logging.warning("ComfyUI port closed — attempting restart.")
+
+                # If a proc exists and is still running, terminate it
+                if self.proc and self.proc.poll() is None:
+                    logging.info("Terminating stale comfy process...")
+                    self.proc.terminate()
+                    try:
+                        self.proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        logging.warning("Force-killing unresponsive comfy process.")
+                        self.proc.kill()
+
+                self._launch_cli()
+                retries += 1
+
+                if retries > 3:
+                    logging.error("ComfyUI failed to recover after 3 attempts; giving up until next poll.")
+                    retries = 0
+            else:
+                retries = 0  # healthy — reset counter
+
+            time.sleep(20)
+
+
+    def is_alive(self) -> bool:
+        return self._cli_was_launched and self._port_open()
+
+    def uptime(self) -> float:
+        return time.time() - self.start_time if self.is_alive() else 0.0
 
     def generate_image(self, data):
         print(data)
@@ -112,3 +218,19 @@ class ComfyRunner:
 
         return "Image generation completed."
 
+    def _reap_zombies_forever(self):
+        """Continuously reaps exited children to avoid zombies."""
+        import errno
+        while True:
+            try:
+                # Wait for any child process without blocking
+                while True:
+                    pid, _ = os.waitpid(-1, os.WNOHANG)
+                    if pid == 0:
+                        break
+            except ChildProcessError:
+                break
+            except OSError as e:
+                if e.errno != errno.ECHILD:
+                    raise
+            time.sleep(1)

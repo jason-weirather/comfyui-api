@@ -107,6 +107,14 @@ def status():
         "job_queue": len(job_queue)
     }), 200
 
+@app.route("/health", methods=["GET"])
+def health():
+    runner = app.config["comfy_runner"]
+    return jsonify({
+        "cli_alive": runner.is_alive(),
+        "cli_uptime_sec": round(runner.uptime(), 1)
+    }), 200
+
 # Pull the generate json schema to validate against
 with pkg_resources.path("comfyui_image_api.Schema", "generate_schema.json") as json_path:
     generate_schema = json.loads(open(json_path).read())
