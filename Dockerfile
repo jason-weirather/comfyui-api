@@ -46,7 +46,7 @@ RUN micromamba run -n base git clone https://github.com/comfyanonymous/ComfyUI.g
     micromamba run -n base pip install -r /opt/ComfyUI/requirements.txt
 
 # Clone your fork of comfy-cli instead of installing from pip
-RUN micromamba run -n base git clone --branch updatetimeoutoption https://github.com/jason-weirather/comfy-cli.git /opt/comfy-cli
+RUN micromamba run -n base git clone --branch nuketimeout https://github.com/jason-weirather/comfy-cli.git /opt/comfy-cli
 
 # Install comfy-cli
 ENV COMFYUI_PATH=/opt/ComfyUI
