@@ -1,6 +1,6 @@
 id: flux-dev-simple
 name: Flux dev simple text2img
-template: flex-dev-simple.json
+template: flux-dev-simple.json
 input_map:
   prompt: ["6", "inputs", "text"]
   negative_prompt: ["33", "inputs", "text"]

@@ -41,3 +41,10 @@ class JobStore:
                 1 for job in self._jobs.values()
                 if job.status in {"queued", "running"}
             )
+
+    def list_active(self) -> list[JobRecord]:
+        with self._lock:
+            return [
+                job for job in self._jobs.values()
+                if job.status in {"queued", "running"}
+            ]

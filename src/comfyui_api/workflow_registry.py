@@ -22,15 +22,26 @@ class WorkflowRegistry:
         self._load()
 
     def _load(self) -> None:
+        if not self.registry_dir.exists():
+            raise FileNotFoundError(f"Workflow registry directory not found: {self.registry_dir}")
+
         for path in sorted(self.registry_dir.glob("*.yaml")):
             raw = yaml.safe_load(path.read_text())
+            template_path = self.template_dir / raw["template"]
+            if not template_path.exists():
+                raise FileNotFoundError(
+                    f"Workflow template for '{raw['id']}' not found: {template_path}"
+                )
             definition = WorkflowDefinition(
                 id=raw["id"],
                 name=raw["name"],
-                template_path=self.template_dir / raw["template"],
+                template_path=template_path,
                 input_map=raw["input_map"],
             )
             self._definitions[definition.id] = definition
+
+        if not self._definitions:
+            raise RuntimeError(f"No workflow definitions found in {self.registry_dir}")
 
     def summary(self) -> list[dict[str, str]]:
         return [

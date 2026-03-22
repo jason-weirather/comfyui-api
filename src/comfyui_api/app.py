@@ -3,6 +3,7 @@ import secrets
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
+from threading import Lock
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
@@ -111,6 +112,10 @@ def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
 
     return jobs.update(job.job_id, status="running")
 
+def _reconcile_active_jobs(request: Request) -> None:
+    jobs: JobStore = request.app.state.jobs
+    for active_job in jobs.list_active():
+        _refresh_job(request, active_job)
 
 def create_app() -> FastAPI:
     settings = get_settings()
@@ -120,6 +125,7 @@ def create_app() -> FastAPI:
         app.state.settings = settings
         app.state.comfy = ComfyUIClient(settings.comfyui_base_url)
         app.state.jobs = JobStore()
+        app.state.submit_lock = Lock()
         app.state.registry = WorkflowRegistry(
             settings.workflow_registry_dir,
             settings.workflow_template_dir,
@@ -167,43 +173,45 @@ def create_app() -> FastAPI:
         registry: WorkflowRegistry = request.app.state.registry
         comfy: ComfyUIClient = request.app.state.comfy
 
-        if jobs.active_count() >= settings.max_pending_jobs:
-            raise HTTPException(status_code=429, detail="Job queue is full")
-
         workflow_id = payload.workflow_id or settings.default_workflow_id
         effective_seed = payload.seed if payload.seed is not None else secrets.randbelow(9223372036854775807)
 
         request_payload = payload.model_dump()
         request_payload["seed"] = effective_seed
 
-        job = jobs.create(workflow_id=workflow_id, request_payload=request_payload)
+        with request.app.state.submit_lock:
+            _reconcile_active_jobs(request)
+            if jobs.active_count() >= settings.max_pending_jobs:
+                raise HTTPException(status_code=429, detail="Job queue is full")
 
-        try:
-            _, workflow = registry.build(
-                workflow_id=workflow_id,
-                values={
-                    "prompt": payload.prompt,
-                    "negative_prompt": payload.negative_prompt,
-                    "seed": effective_seed,
-                    "steps": payload.steps,
-                    "denoise": payload.denoise,
-                    "cfg": payload.cfg,
-                    "width": payload.width,
-                    "height": payload.height,
-                    "checkpoint_name": payload.checkpoint_name or settings.default_checkpoint_name,
-                },
-            )
+            job = jobs.create(workflow_id=workflow_id, request_payload=request_payload)
 
-            submission = comfy.submit_prompt(workflow=workflow, client_id=job.job_id)
-            job = jobs.update(
-                job.job_id,
-                prompt_id=submission["prompt_id"],
-                queue_number=submission.get("number"),
-                status="queued",
-            )
-        except Exception as exc:
-            jobs.update(job.job_id, status="failed", error=str(exc))
-            raise HTTPException(status_code=400, detail=str(exc))
+            try:
+                _, workflow = registry.build(
+                    workflow_id=workflow_id,
+                    values={
+                        "prompt": payload.prompt,
+                        "negative_prompt": payload.negative_prompt,
+                        "seed": effective_seed,
+                        "steps": payload.steps,
+                        "denoise": payload.denoise,
+                        "cfg": payload.cfg,
+                        "width": payload.width,
+                        "height": payload.height,
+                        "checkpoint_name": payload.checkpoint_name or settings.default_checkpoint_name or None,
+                    },
+                )
+
+                submission = comfy.submit_prompt(workflow=workflow, client_id=job.job_id)
+                job = jobs.update(
+                    job.job_id,
+                    prompt_id=submission["prompt_id"],
+                    queue_number=submission.get("number"),
+                    status="queued",
+                )
+            except Exception as exc:
+                jobs.update(job.job_id, status="failed", error=str(exc))
+                raise HTTPException(status_code=400, detail=str(exc))
 
         if not wait:
             return job

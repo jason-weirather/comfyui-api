@@ -22,7 +22,8 @@ class Settings(BaseSettings):
 
     max_pending_jobs: int = 5
     default_workflow_id: str = "flux-dev-simple"
-    default_checkpoint_name: str | None = "flux1-dev-fp8.safetensors"
+    # If None, keep the checkpoint embedded in the workflow JSON.
+    default_checkpoint_name: str | None
 
     wait_timeout_seconds: int = 900
     poll_interval_seconds: float = 0.5

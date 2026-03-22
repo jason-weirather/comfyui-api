@@ -86,7 +86,7 @@ ENV COMFYUI_IMAGE_API_DEFAULT_HOST 0.0.0.0
 #ENV LOG_LEVEL DEBUG
 
 # Use the wrapper script as the entrypoint
-ENTRYPOINT ["/opt/comfyui-image-api/start.sh"]
+ENTRYPOINT ["comfyui-api"]
 
 # Command to start comfy-api
-CMD ["--port", "8888", "--host", "$COMFYUI_IMAGE_API_DEFAULT_HOST", "--model-path", "/opt/ComfyUI/models/diffusers"]
+CMD []
