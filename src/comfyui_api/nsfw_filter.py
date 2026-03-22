@@ -1,10 +1,7 @@
-import torch
 from nudenet import NudeDetector
 from PIL import Image, ImageFilter
-import tempfile
-import os
 
-# NSFW label severity mapping
+
 LABEL_SEVERITY = {
     "FEMALE_GENITALIA_COVERED": 1,
     "FACE_FEMALE": 0,
@@ -28,6 +25,7 @@ LABEL_SEVERITY = {
 
 detector = NudeDetector()
 
+
 def apply_nsfw_filter(image_path, filter_settings):
     level = filter_settings["level"]
     probability = filter_settings["probability"]
@@ -37,15 +35,16 @@ def apply_nsfw_filter(image_path, filter_settings):
 
     result = detector.detect(image_path)
 
-    # Filter out things that do not have a level over zero
     filtered = [
-        r for r in result if LABEL_SEVERITY.get(r['class'],0) > 0
+        r
+        for r in result
+        if r.get("score", 0.0) >= probability
+        and LABEL_SEVERITY.get(r["class"], 0) > 0
     ]
 
-    # Compute max severity from valid labels
-    severities = [LABEL_SEVERITY[r['class']] for r in filtered]
+    severities = [LABEL_SEVERITY[r["class"]] for r in filtered]
     max_severity = max(severities) if severities else 0
-    labels_triggered = sorted(list(set([r['class'] for r in filtered])))
+    labels_triggered = sorted({r["class"] for r in filtered})
 
     if blur_enabled and level > 0 and max_severity >= level:
         img = Image.open(image_path)

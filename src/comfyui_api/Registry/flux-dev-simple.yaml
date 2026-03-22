@@ -1,0 +1,13 @@
+id: flux-dev-simple
+name: Flux dev simple text2img
+template: flex-dev-simple.json
+input_map:
+  prompt: ["6", "inputs", "text"]
+  negative_prompt: ["33", "inputs", "text"]
+  seed: ["31", "inputs", "seed"]
+  steps: ["31", "inputs", "steps"]
+  denoise: ["31", "inputs", "denoise"]
+  cfg: ["35", "inputs", "guidance"]
+  width: ["27", "inputs", "width"]
+  height: ["27", "inputs", "height"]
+  checkpoint_name: ["30", "inputs", "ckpt_name"]
