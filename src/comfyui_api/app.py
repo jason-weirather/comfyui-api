@@ -21,6 +21,7 @@ def _materialize_images(
     comfy: ComfyUIClient,
     assets: list[dict],
     filter_settings,
+    settings: Settings,
 ) -> tuple[list[GeneratedImage], dict]:
     if hasattr(filter_settings, "model_dump"):
         filter_settings_dict = filter_settings.model_dump()
@@ -38,6 +39,14 @@ def _materialize_images(
             subfolder=asset.get("subfolder", ""),
             folder_type=asset.get("type", "output"),
         )
+
+        generated_path = None
+        if settings.comfyui_output_dir and asset.get("type", "output") == "output":
+            generated_path = (
+                settings.comfyui_output_dir
+                / asset.get("subfolder", "")
+                / asset["filename"]
+            )
 
         suffix = Path(asset["filename"]).suffix or ".png"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -65,6 +74,8 @@ def _materialize_images(
             )
         finally:
             tmp_path.unlink(missing_ok=True)
+            if settings.delete_generated_files and generated_path is not None:
+                generated_path.unlink(missing_ok=True)
 
     return rendered, {
         "max_score": max_score,
@@ -94,6 +105,7 @@ def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
             comfy,
             assets,
             job.request_payload["content_filter"],
+            request.app.state.settings,
         )
         return jobs.update(
             job.job_id,
@@ -233,6 +245,7 @@ def create_app() -> FastAPI:
                 comfy,
                 assets,
                 payload.content_filter,
+                settings,
             )
             job = jobs.update(
                 job.job_id,
