@@ -45,7 +45,7 @@ def _materialize_images(
             tmp_path = Path(tmp.name)
 
         try:
-            score, triggered = apply_nsfw_filter(tmp_path, filter_settings_dict)
+            score, triggered = apply_nsfw_filter(str(tmp_path), filter_settings_dict)
             max_score = max(max_score, score)
             labels.update(triggered)
             blurred = blurred or (

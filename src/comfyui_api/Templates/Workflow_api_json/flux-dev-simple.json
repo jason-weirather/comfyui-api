@@ -1,38 +1,9 @@
 {
-  "6": {
-    "inputs": {
-      "text": "instagram photo of fried drumsticks (chicken), korean style, a huge portion on the dinner table, a cute hungry farm piglet is looking at the plate",
-      "clip": [
-        "30",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Positive Prompt)"
-    }
-  },
-  "8": {
-    "inputs": {
-      "samples": [
-        "31",
-        0
-      ],
-      "vae": [
-        "30",
-        2
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
   "9": {
     "inputs": {
       "filename_prefix": "ComfyUI",
       "images": [
-        "8",
+        "41:8",
         0
       ]
     },
@@ -41,7 +12,69 @@
       "title": "Save Image"
     }
   },
-  "27": {
+  "41:39": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "41:42": {
+    "inputs": {
+      "conditioning": [
+        "41:45",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "41:8": {
+    "inputs": {
+      "samples": [
+        "41:31",
+        0
+      ],
+      "vae": [
+        "41:39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "41:43": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
+  "41:45": {
+    "inputs": {
+      "text": "instagram photo of fried drumsticks (chicken), korean style, a huge portion on the dinner table, a cute hungry farm piglet is looking at the plate",
+      "clip": [
+        "41:43",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "41:27": {
     "inputs": {
       "width": 1024,
       "height": 1024,
@@ -52,37 +85,28 @@
       "title": "EmptySD3LatentImage"
     }
   },
-  "30": {
+  "41:31": {
     "inputs": {
-      "ckpt_name": "Comfy-Org--flux1-dev/flux1-dev-fp8.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
-  "31": {
-    "inputs": {
-      "seed": 289135626765403,
-      "steps": 50,
+      "seed": 82041972486412,
+      "steps": 20,
       "cfg": 1,
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1,
       "model": [
-        "30",
+        "41:38",
         0
       ],
       "positive": [
-        "35",
+        "41:45",
         0
       ],
       "negative": [
-        "33",
+        "41:42",
         0
       ],
       "latent_image": [
-        "27",
+        "41:27",
         0
       ]
     },
@@ -91,30 +115,14 @@
       "title": "KSampler"
     }
   },
-  "33": {
+  "41:38": {
     "inputs": {
-      "text": "",
-      "clip": [
-        "30",
-        1
-      ]
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "default"
     },
-    "class_type": "CLIPTextEncode",
+    "class_type": "UNETLoader",
     "_meta": {
-      "title": "CLIP Text Encode (Negative Prompt)"
-    }
-  },
-  "35": {
-    "inputs": {
-      "guidance": 3.5,
-      "conditioning": [
-        "6",
-        0
-      ]
-    },
-    "class_type": "FluxGuidance",
-    "_meta": {
-      "title": "FluxGuidance"
+      "title": "Load Diffusion Model"
     }
   }
 }

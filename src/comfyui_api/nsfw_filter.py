@@ -1,3 +1,4 @@
+from pathlib import Path
 from nudenet import NudeDetector
 from PIL import Image, ImageFilter
 
@@ -27,6 +28,8 @@ detector = NudeDetector()
 
 
 def apply_nsfw_filter(image_path, filter_settings):
+    image_path = str(Path(image_path))
+
     level = filter_settings["level"]
     probability = filter_settings["probability"]
     min_blur = filter_settings["gaussian_blur_minimum"]

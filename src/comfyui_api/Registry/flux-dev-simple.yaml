@@ -2,12 +2,17 @@ id: flux-dev-simple
 name: Flux dev simple text2img
 template: flux-dev-simple.json
 input_map:
-  prompt: ["6", "inputs", "text"]
-  negative_prompt: ["33", "inputs", "text"]
-  seed: ["31", "inputs", "seed"]
-  steps: ["31", "inputs", "steps"]
-  denoise: ["31", "inputs", "denoise"]
-  cfg: ["35", "inputs", "guidance"]
-  width: ["27", "inputs", "width"]
-  height: ["27", "inputs", "height"]
-  checkpoint_name: ["30", "inputs", "ckpt_name"]
+  prompt: ["41:45", "inputs", "text"]
+  seed: ["41:31", "inputs", "seed"]
+  steps: ["41:31", "inputs", "steps"]
+  cfg: ["41:31", "inputs", "cfg"]
+  denoise: ["41:31", "inputs", "denoise"]
+  width: ["41:27", "inputs", "width"]
+  height: ["41:27", "inputs", "height"]
+
+  diffusion_model_name: ["41:38", "inputs", "unet_name"]
+  clip_name1: ["41:43", "inputs", "clip_name1"]
+  clip_name2: ["41:43", "inputs", "clip_name2"]
+  vae_name: ["41:39", "inputs", "vae_name"]
+
+  filename_prefix: ["9", "inputs", "filename_prefix"]
