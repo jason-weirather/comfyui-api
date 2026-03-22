@@ -3,33 +3,33 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "comfyui_image_api"
-version = "0.2.0"
-description = "An API to generate images using Stable Diffusion and ComfyUI"
+name = "comfyui_api"
+version = "0.3.0"
+description = "A FastAPI wrapper for ComfyUI workflows"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.8"
-authors = [
-    { name="Jason L Weirather", email="jason.weirather@gmail.com" }
-]
+requires-python = ">=3.11"
 dependencies = [
-    "Flask",
-    "PyYAML",
-    "numpy",
-    "click",
-    "jsonschema",
-    "tomli",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.34,<1",
+    "httpx>=0.28,<1",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.8,<3",
+    "python-multipart>=0.0.20,<1",
+    "PyYAML>=6,<7",
+    "Pillow>=10,<12",
     "nudenet"
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/jason-weirather/comfyui-image-api"
+Homepage = "https://github.com/jason-weirather/comfyui-api"
 
 [project.scripts]
-comfy-api = "comfyui_image_api.api_server:main"
+comfyui-api = "comfyui_api.main:main"
+comfy-api = "comfyui_api.main:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["comfyui_image_api"]
+packages = ["comfyui_api"]
 include-package-data = true
