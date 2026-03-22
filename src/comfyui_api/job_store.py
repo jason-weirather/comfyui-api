@@ -1,7 +1,7 @@
 from threading import Lock
 from uuid import uuid4
 
-from comfyui_image_api.models import JobRecord, utcnow
+from comfyui_api.models import JobRecord, utcnow
 
 
 class JobStore:

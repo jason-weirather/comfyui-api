@@ -9,7 +9,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="COMFYUI_IMAGE_API_",
+        env_prefix="COMFYUI_API_",
         env_file=".env",
         extra="ignore",
     )
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     wait_timeout_seconds: int = 900
     poll_interval_seconds: float = 0.5
 
-    workflow_registry_dir: Path = PACKAGE_ROOT / "registry"
+    workflow_registry_dir: Path = PACKAGE_ROOT / "Registry"
     workflow_template_dir: Path = PACKAGE_ROOT / "Templates" / "Workflow_api_json"
 
 

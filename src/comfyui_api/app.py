@@ -6,14 +6,14 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
-from comfyui_image_api import __version__
-from comfyui_image_api.comfy_client import ComfyUIClient
-from comfyui_image_api.job_store import JobStore
-from comfyui_image_api.models import GeneratedImage, JobRecord, TextToImageRequest
-from comfyui_image_api.nsfw_filter import apply_nsfw_filter
-from comfyui_image_api.security import require_api_key
-from comfyui_image_api.settings import Settings, get_settings
-from comfyui_image_api.workflow_registry import WorkflowRegistry
+from comfyui_api import __version__
+from comfyui_api.comfy_client import ComfyUIClient
+from comfyui_api.job_store import JobStore
+from comfyui_api.models import GeneratedImage, JobRecord, TextToImageRequest
+from comfyui_api.nsfw_filter import apply_nsfw_filter
+from comfyui_api.security import require_api_key
+from comfyui_api.settings import Settings, get_settings
+from comfyui_api.workflow_registry import WorkflowRegistry
 
 
 def _materialize_images(
@@ -21,6 +21,11 @@ def _materialize_images(
     assets: list[dict],
     filter_settings,
 ) -> tuple[list[GeneratedImage], dict]:
+    if hasattr(filter_settings, "model_dump"):
+        filter_settings_dict = filter_settings.model_dump()
+    else:
+        filter_settings_dict = dict(filter_settings)
+
     rendered: list[GeneratedImage] = []
     max_score = 0
     labels: set[str] = set()
@@ -39,13 +44,13 @@ def _materialize_images(
             tmp_path = Path(tmp.name)
 
         try:
-            score, triggered = apply_nsfw_filter(tmp_path, filter_settings.model_dump())
+            score, triggered = apply_nsfw_filter(tmp_path, filter_settings_dict)
             max_score = max(max_score, score)
             labels.update(triggered)
             blurred = blurred or (
-                filter_settings.blur
-                and filter_settings.level > 0
-                and score >= filter_settings.level
+                filter_settings_dict["blur"]
+                and filter_settings_dict["level"] > 0
+                and score >= filter_settings_dict["level"]
             )
 
             encoded = base64.b64encode(tmp_path.read_bytes()).decode("utf-8")

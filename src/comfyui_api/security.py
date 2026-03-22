@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from comfyui_image_api.settings import Settings, get_settings
+from comfyui_api.settings import Settings, get_settings
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
