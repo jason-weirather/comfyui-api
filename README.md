@@ -1,8 +1,8 @@
-# ComfyUI Image API
+# ComfyUI API
 
 ### For Black Forest Lab's `FLUX.1 [dev]` Model
 
-The **ComfyUI Image API** enables GPU users to leverage ComfyUI’s advanced workflow management capabilities for running Black Forest Lab's **`FLUX.1 [dev]`** model. Designed for GPUs with limited memory, this project can run the `fp8` version of **`FLUX.1 [dev]`** in under 20GB of VRAM. The API provides a containerized, RESTful interface for image generation, offering both scalability and ease of use.
+The **ComfyUI API** enables GPU users to leverage ComfyUI’s advanced workflow management capabilities for running Black Forest Lab's **`FLUX.1 [dev]`** model. Designed for GPUs with limited memory, this project can run the `fp8` version of **`FLUX.1 [dev]`** in under 20GB of VRAM. The API provides a containerized, RESTful interface for image generation, offering both scalability and ease of use.
 
 This API integrates **ComfyUI**, **comfy-cli**, and **Flask** to allow seamless submission of image generation jobs. It offers a queue system for handling multiple requests while ensuring efficient resource utilization.
 
@@ -62,7 +62,7 @@ curl -X POST http://127.0.0.1:8888/generate \
 
 ## Requirements
 
-1. Before running the ComfyUI Image API, ensure the following dependencies are installed on your system:
+1. Before running the ComfyUI API, ensure the following dependencies are installed on your system:
   - **Python 3.8+**
   - **PyTorch** with CUDA support (if you are using GPU-based image generation)
   - **ComfyUI**
@@ -109,7 +109,7 @@ comfy-api --model-path /path/to/your/model
 | Option           | Description                                                                                            | Default                     |
 |------------------|--------------------------------------------------------------------------------------------------------|-----------------------------|
 | `--model-path`   | Path to the model you want to use (required).                                                          | N/A                         |
-| `--host`         | The host to bind the API server to. You can override the default via `COMFYUI_IMAGE_API_DEFAULT_HOST`. | `127.0.0.1`                 |
+| `--host`         | The host to bind the API server to. You can override the default via `COMFYUI_API_DEFAULT_HOST`. | `127.0.0.1`                 |
 | `--port`         | Port for the API server.                                                                               | `8888`                      |
 | `--comfyui-path` | Path to the ComfyUI installation. You can override this via the `COMFYUI_PATH` environment variable.   | N/A                         |
 | `--comfyui-host` | The host to bind the ComfyUI server to (for internal use).                                             | `127.0.0.1`                 |
@@ -205,7 +205,7 @@ curl -X GET http://localhost:8888/status
 
 You can configure several settings using environment variables or command-line options. For example:
 
-- **`COMFYUI_IMAGE_API_DEFAULT_HOST`**: Overrides the default host for the API server.
+- **`COMFYUI_API_DEFAULT_HOST`**: Overrides the default host for the API server.
 - **`COMFYUI_PATH`**: Path to the ComfyUI installation.
 
 Additionally, the server configuration (such as `max_queue_size`) is exposed via the `/status` endpoint.
