@@ -154,6 +154,10 @@ def create_app() -> FastAPI:
     def system_stats(request: Request):
         return request.app.state.comfy.get_system_stats()
 
+    @app.get("/v1/queue", dependencies=[Depends(require_api_key)])
+    def queue_info(request: Request):
+        return request.app.state.comfy.get_queue()
+
     @app.get("/v1/models/{folder}", dependencies=[Depends(require_api_key)])
     def list_models(folder: str, request: Request):
         return request.app.state.comfy.list_models(folder)

@@ -45,8 +45,14 @@ class ComfyUIClient:
 
     def submit_prompt(self, workflow: dict[str, Any], client_id: str) -> dict[str, Any]:
         payload = {"prompt": workflow, "client_id": client_id}
-        data = self._post_json("/prompt", payload)
-        if "error" in data:
+        response = self.client.post("/prompt", json=payload)
+        try:
+            data = response.json()
+        except ValueError:
+            response.raise_for_status()
+            raise RuntimeError("ComfyUI returned a non-JSON response for /prompt")
+
+        if response.status_code >= 400 or "error" in data:
             raise RuntimeError(
                 f"ComfyUI prompt validation failed: {json.dumps(data, ensure_ascii=False)}"
             )
