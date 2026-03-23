@@ -139,8 +139,8 @@ def create_app() -> FastAPI:
         app.state.jobs = JobStore()
         app.state.submit_lock = Lock()
         app.state.registry = WorkflowRegistry(
-            settings.workflow_registry_dir,
-            settings.workflow_template_dir,
+            settings.cassette_dir,
+            settings.cassette_schema_path,
         )
         yield
         app.state.comfy.close()
@@ -192,7 +192,7 @@ def create_app() -> FastAPI:
         workflow_id = payload.workflow_id or settings.default_workflow_id
         effective_seed = payload.seed if payload.seed is not None else secrets.randbelow(9223372036854775807)
 
-        request_payload = payload.model_dump()
+        request_payload = payload.model_dump(exclude_none=True)
         request_payload["seed"] = effective_seed
 
         with request.app.state.submit_lock:
@@ -203,19 +203,15 @@ def create_app() -> FastAPI:
             job = jobs.create(workflow_id=workflow_id, request_payload=request_payload)
 
             try:
+                build_values = {
+                    k: v
+                    for k, v in request_payload.items()
+                    if k not in {"workflow_id", "content_filter"}
+                }
+
                 _, workflow = registry.build(
                     workflow_id=workflow_id,
-                    values={
-                        "prompt": payload.prompt,
-                        "negative_prompt": payload.negative_prompt,
-                        "seed": effective_seed,
-                        "steps": payload.steps,
-                        "denoise": payload.denoise,
-                        "cfg": payload.cfg,
-                        "width": payload.width,
-                        "height": payload.height,
-                        "checkpoint_name": payload.checkpoint_name or settings.default_checkpoint_name or None,
-                    },
+                    values=build_values,
                 )
 
                 submission = comfy.submit_prompt(workflow=workflow, client_id=job.job_id)

@@ -30,9 +30,8 @@ class Settings(BaseSettings):
     wait_timeout_seconds: int = 900
     poll_interval_seconds: float = 0.5
 
-    workflow_registry_dir: Path = PACKAGE_ROOT / "Registry"
-    workflow_template_dir: Path = PACKAGE_ROOT / "Templates" / "Workflow_api_json"
-
+    cassette_dir: Path = PACKAGE_ROOT / "Cassettes"
+    cassette_schema_path: Path = PACKAGE_ROOT / "Schemas" / "cassette.schema.json"
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
