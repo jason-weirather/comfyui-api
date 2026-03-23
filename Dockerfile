@@ -1,92 +1,66 @@
-FROM mambaorg/micromamba:1-jammy-cuda-12.6.0
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
 
-# Set environment variables for NVIDIA
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+ARG DEBIAN_FRONTEND=noninteractive
+ARG COMFYUI_VERSION=v0.18.0
 
-# Install Python 3.11 in the base environment globally for all users
-RUN micromamba install -n base python=3.11 git nano -c conda-forge && \
-    micromamba clean --all --yes
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    COMFYUI_HOME=/opt/ComfyUI \
+    COMFYUI_VERSION=${COMFYUI_VERSION} \
+    COMFYUI_HOST=127.0.0.1 \
+    COMFYUI_PORT=8188 \
+    COMFYUI_INPUT_DIR=/srv/comfy/input \
+    COMFYUI_OUTPUT_DIR=/srv/comfy/output \
+    COMFYUI_USER_DIR=/srv/comfy/user \
+    COMFYUI_MODELS_ROOT=/models \
+    COMFYUI_EXTRA_MODEL_PATHS_CONFIG=/srv/comfy/extra_model_paths.yaml \
+    COMFYUI_DISABLE_API_NODES=true \
+    COMFYUI_STARTUP_TIMEOUT=300 \
+    COMFYUI_API_COMFYUI_BASE_URL=http://127.0.0.1:8188 \
+    COMFYUI_API_API_HOST=0.0.0.0 \
+    COMFYUI_API_API_PORT=8888 \
+    COMFYUI_API_COMFYUI_OUTPUT_DIR=/srv/comfy/output \
+    COMFYUI_API_DELETE_GENERATED_FILES=true
 
-USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    git \
+    curl \
+    ca-certificates \
+    tini \
+    libgl1 \
+    libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/python3 /usr/bin/python \
+ && ln -sf /usr/bin/pip3 /usr/bin/pip
 
-# Add your _activate_current_env.sh to the global profile.d directory
-RUN cp /usr/local/bin/_activate_current_env.sh /etc/profile.d/activate_mamba.sh && \
-    chmod +x /etc/profile.d/activate_mamba.sh
+RUN python3 -m venv ${VIRTUAL_ENV}
 
-# Ensure it is sourced for all users by adding it to profile.d (global for bash users)
-RUN echo "source /etc/profile.d/activate_mamba.sh" >> /etc/bash.bashrc
+RUN git clone --depth 1 --branch ${COMFYUI_VERSION} https://github.com/Comfy-Org/ComfyUI.git ${COMFYUI_HOME}
 
-# Install Networking Tools
-RUN apt-get update && apt-get install -y iputils-ping net-tools && \
-    rm -rf /var/lib/apt/lists/*
+RUN ${VIRTUAL_ENV}/bin/pip install --upgrade pip setuptools wheel && \
+    ${VIRTUAL_ENV}/bin/pip install --default-timeout=100 torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 && \
+    ${VIRTUAL_ENV}/bin/pip install --default-timeout=100 -r ${COMFYUI_HOME}/requirements.txt
 
-USER mambauser
+WORKDIR /opt/comfyui-api
+COPY pyproject.toml README.md LICENSE MANIFEST.in ./
+COPY src ./src
+COPY start.sh /usr/local/bin/start-comfyui-stack
 
-# Install PyTorch with CUDA using micromamba run (so we don’t need to activate the base environment manually)
-RUN micromamba run -n base pip install \
-    torch \
-    torchvision \
-    torchaudio --extra-index-url https://download.pytorch.org/whl/cu124
+RUN chmod +x /usr/local/bin/start-comfyui-stack && \
+    ${VIRTUAL_ENV}/bin/pip install --no-build-isolation --default-timeout=100 .
 
-# Switch to root to perform privileged operations
-USER root
+RUN mkdir -p /srv/comfy/input /srv/comfy/output /srv/comfy/user /models /cassettes
 
-# Create /opt/ComfyUI directory and give permissions
-RUN mkdir -p /opt/ComfyUI && \
-    chmod -R 777 /opt/ComfyUI
-RUN mkdir -p /opt/comfy-cli && \
-    chmod -R 777 /opt/comfy-cli
+EXPOSE 8888 8188
 
-# Switch back to the default user for micromamba
-USER mambauser
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+  CMD curl -fsS http://127.0.0.1:${COMFYUI_API_API_PORT:-8888}/healthz || exit 1
 
-# Clone ComfyUI repo and install dependencies
-RUN micromamba run -n base git clone https://github.com/comfyanonymous/ComfyUI.git /opt/ComfyUI && \
-    micromamba run -n base pip install -r /opt/ComfyUI/requirements.txt
-
-# Clone your fork of comfy-cli instead of installing from pip
-RUN micromamba run -n base git clone --branch updatetimeoutoption https://github.com/jason-weirather/comfy-cli.git /opt/comfy-cli
-
-# Install comfy-cli
-ENV COMFYUI_PATH=/opt/ComfyUI
-RUN cd /opt/comfy-cli && micromamba run -n base pip install -e .
-
-# Run for first time and disable tracking
-RUN micromamba run -n base comfy \
-        --workspace $COMFYUI_PATH \
-        --skip-prompt \
-        --no-enable-telemetry tracking disable
-
-USER root
-# Copy the required repository into the container
-ADD ./src /opt/comfyui-image-api/src
-ADD pyproject.toml /opt/comfyui-image-api/pyproject.toml
-ADD start.sh /opt/comfyui-image-api/start.sh
-ADD README.md /opt/comfyui-image-api/README.md
-ADD LICENSE /opt/comfyui-image-api/LICENSE
-
-
-# Set permissions for the copied files
-RUN chmod -R 777 /opt/comfyui-image-api
-
-RUN mkdir -p /.cache/mamba/proc && \
-    chmod -R 777 /.cache/mamba && \
-    mkdir -p /.config && \
-    chmod -R 777 /.config
-
-USER mambauser
-RUN cd /opt/comfyui-image-api && micromamba run -n base pip install -e .
-
-RUN mkdir -p /home/mambauser/.config/comfy-cli && \
-    chmod -R 777 /home/mambauser
-
-ENV COMFYUI_IMAGE_API_DEFAULT_HOST 0.0.0.0
-
-#ENV LOG_LEVEL DEBUG
-
-# Use the wrapper script as the entrypoint
-ENTRYPOINT ["comfyui-api"]
-
-# Command to start comfy-api
-CMD []
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/start-comfyui-stack"]
