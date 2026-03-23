@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jason-weirather/comfyui-api/main/src/comfyui_api/Schemas/cassette.schema.json",
+  "title": "ComfyUI API cassette",
+  "description": "Declarative metadata for one ComfyUI workflow cassette.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "id",
+    "kind",
+    "name",
+    "workflow_file",
+    "inputs"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "Optional self-reference for editors or tooling."
+    },
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Cassette schema version."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "description": "Stable workflow identifier used by the API."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "text2image",
+        "image2image",
+        "inpaint",
+        "upscale",
+        "workflow",
+        "other"
+      ],
+      "description": "High-level workflow family."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable workflow name."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional long-form workflow description."
+    },
+    "workflow_file": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^.+\\.json$",
+      "description": "Relative path to the exported ComfyUI API-format workflow JSON."
+    },
+    "docs": {
+      "$ref": "#/$defs/docs"
+    },
+    "request_schema": {
+      "description": "JSON Schema applied to the user-supplied inputs object. Kept broad on purpose so you can embed ordinary JSON Schema here without turning this schema into a mirror maze.",
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "inputs": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/inputPath"
+      },
+      "description": "Maps friendly API input names to paths inside the ComfyUI workflow JSON."
+    },
+    "models_required": {
+      "$ref": "#/$defs/modelsRequired"
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
+    "aliases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      },
+      "description": "Optional API path aliases or shorthand route hints."
+    }
+  },
+  "$defs": {
+    "pathSegment": {
+      "description": "One step in a path into the ComfyUI workflow JSON.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ]
+    },
+    "inputPath": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/pathSegment"
+      },
+      "description": "Path segments used to locate a field inside the exported workflow JSON."
+    },
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "request"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "request": {
+          "type": "object",
+          "description": "Example request body or inputs payload."
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/$defs/stringList"
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/example"
+          }
+        }
+      }
+    },
+    "modelsRequired": {
+      "type": "object",
+      "description": "Lists model filenames required by folder family, for example diffusion_models, text_encoders, vae, loras, checkpoints.",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/stringList"
+      }
+    },
+    "contentFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "blur": {
+          "type": "boolean"
+        },
+        "gaussian_blur_minimum": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gaussian_blur_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "response_mode": {
+          "type": "string",
+          "enum": [
+            "base64_images",
+            "asset_metadata",
+            "both"
+          ]
+        },
+        "delete_generated_files": {
+          "type": "boolean"
+        },
+        "content_filter": {
+          "$ref": "#/$defs/contentFilter"
+        }
+      }
+    }
+  }
+}

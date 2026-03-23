@@ -1,7 +1,60 @@
+version: 1
 id: flux-dev-simple
-name: Flux dev simple text2img
-template: flux-dev-simple.json
-input_map:
+kind: text2image
+name: FLUX.1 Dev simple
+workflow_file: workflow.json
+
+docs:
+  summary: Native FLUX text-to-image
+  description: FLUX native workflow using UNETLoader, DualCLIPLoader, and VAELoader.
+  tags: [text2image, flux]
+  examples:
+    - name: basic
+      request:
+        prompt: "instagram photo of fried drumsticks, korean style, huge portion on the dinner table, a cute hungry farm piglet looking at the plate"
+        steps: 20
+        width: 1024
+        height: 1024
+        cfg: 1.0
+        denoise: 1.0
+
+request_schema:
+  type: object
+  required: [prompt]
+  properties:
+    prompt:
+      type: string
+      minLength: 1
+      description: Prompt text
+    seed:
+      type: integer
+      minimum: 0
+    steps:
+      type: integer
+      minimum: 1
+      default: 20
+    width:
+      type: integer
+      minimum: 64
+      maximum: 3840
+      default: 1024
+    height:
+      type: integer
+      minimum: 64
+      maximum: 3840
+      default: 1024
+    cfg:
+      type: number
+      minimum: 1.0
+      maximum: 30.0
+      default: 1.0
+    denoise:
+      type: number
+      minimum: 0.0
+      maximum: 1.0
+      default: 1.0
+
+inputs:
   prompt: ["41:45", "inputs", "text"]
   seed: ["41:31", "inputs", "seed"]
   steps: ["41:31", "inputs", "steps"]
@@ -10,9 +63,24 @@ input_map:
   width: ["41:27", "inputs", "width"]
   height: ["41:27", "inputs", "height"]
 
-  diffusion_model_name: ["41:38", "inputs", "unet_name"]
-  clip_name1: ["41:43", "inputs", "clip_name1"]
-  clip_name2: ["41:43", "inputs", "clip_name2"]
-  vae_name: ["41:39", "inputs", "vae_name"]
+models_required:
+  diffusion_models:
+    - flux1-dev-fp8.safetensors
+  text_encoders:
+    - clip_l.safetensors
+    - t5xxl_fp16.safetensors
+  vae:
+    - ae.safetensors
 
-  filename_prefix: ["9", "inputs", "filename_prefix"]
+runtime:
+  response_mode: base64_images
+  delete_generated_files: true
+  content_filter:
+    level: 2
+    probability: 0.5
+    blur: true
+    gaussian_blur_minimum: 20.0
+    gaussian_blur_fraction: 0.05
+
+aliases:
+  - /v1/jobs/text2img
