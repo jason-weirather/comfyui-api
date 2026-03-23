@@ -192,7 +192,7 @@ def create_app() -> FastAPI:
         workflow_id = payload.workflow_id or settings.default_workflow_id
         effective_seed = payload.seed if payload.seed is not None else secrets.randbelow(9223372036854775807)
 
-        request_payload = payload.model_dump(exclude_none=True)
+        request_payload = payload.model_dump(exclude_none=True, exclude_unset=True)
         request_payload["seed"] = effective_seed
 
         with request.app.state.submit_lock:
