@@ -78,9 +78,9 @@
         "pattern": "^[A-Za-z0-9_.-]+$"
       },
       "additionalProperties": {
-        "$ref": "#/$defs/inputPath"
+        "$ref": "#/$defs/inputBinding"
       },
-      "description": "Maps friendly API input names to paths inside the ComfyUI workflow JSON."
+      "description": "Maps friendly API input names to one or more paths inside the ComfyUI workflow JSON."
     },
     "models_required": {
       "$ref": "#/$defs/modelsRequired"
@@ -119,6 +119,21 @@
         "$ref": "#/$defs/pathSegment"
       },
       "description": "Path segments used to locate a field inside the exported workflow JSON."
+    },
+    "inputBinding": {
+      "description": "Either one workflow path or multiple workflow paths that should all receive the same value.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/inputPath"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/inputPath"
+          }
+        }
+      ]
     },
     "stringList": {
       "type": "array",
