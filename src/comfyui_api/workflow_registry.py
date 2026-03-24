@@ -97,9 +97,17 @@ class WorkflowRegistry:
         definition = self.get(workflow_id)
         workflow = json.loads(definition.workflow_path.read_text())
 
-        for key, path in definition.input_map.items():
+        for key, binding in definition.input_map.items():
             if key in values and values[key] is not None:
-                self._deep_set(workflow, path, values[key])
+                if (
+                    isinstance(binding, list)
+                    and binding
+                    and all(isinstance(x, list) for x in binding)
+                ):
+                    for path in binding:
+                        self._deep_set(workflow, path, values[key])
+                else:
+                    self._deep_set(workflow, binding, values[key])
 
         return definition, workflow
 
