@@ -121,7 +121,7 @@ class ComfyUIClient:
     def extract_output_assets(history_item: dict[str, Any]) -> list[dict[str, Any]]:
         assets: list[dict[str, Any]] = []
         for _, node_output in (history_item.get("outputs") or {}).items():
-            for key in ("images", "gifs", "audio"):
+            for key in ("images", "gifs", "videos", "audio"):
                 for asset in node_output.get(key, []):
                     if isinstance(asset, dict) and "filename" in asset:
                         assets.append(asset)

@@ -37,6 +37,9 @@
         "image2image",
         "inpaint",
         "upscale",
+        "text2video",
+        "image2video",
+        "video2video",
         "workflow",
         "other"
       ],
@@ -232,7 +235,8 @@
           "enum": [
             "base64_images",
             "asset_metadata",
-            "both"
+            "both",
+            "base64_assets"
           ]
         },
         "delete_generated_files": {

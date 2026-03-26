@@ -7,8 +7,7 @@ name = "comfyui_api"
 version = "0.3.2"
 description = "A FastAPI wrapper for ComfyUI workflows"
 readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115,<1",

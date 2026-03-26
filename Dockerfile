@@ -53,6 +53,9 @@ COPY pyproject.toml README.md LICENSE MANIFEST.in ./
 COPY src ./src
 COPY start.sh /usr/local/bin/start-comfyui-stack
 
+RUN mkdir -p /srv/comfy/input /srv/comfy/output /srv/comfy/user /models /cassettes && \
+    cp /opt/comfyui-api/src/comfyui_api/Templates/extra_model_paths.yaml /srv/comfy/extra_model_paths.yaml
+
 RUN chmod +x /usr/local/bin/start-comfyui-stack && \
     ${VIRTUAL_ENV}/bin/pip install --no-build-isolation --default-timeout=100 .
 
