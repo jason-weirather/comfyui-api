@@ -1,5 +1,5 @@
 container_models:
-  base_path: __COMFYUI_MODELS_ROOT__
+  base_path: /models
   checkpoints: checkpoints
   diffusion_models: diffusion_models
   text_encoders: text_encoders
