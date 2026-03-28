@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     comfyui_base_url: str = "http://127.0.0.1:8188"
     comfyui_output_dir: Path | None = None
     delete_generated_files: bool = True
+    view_retry_attempts: int = 8
+    view_retry_delay_seconds: float = 0.25
 
     max_pending_jobs: int = 5
     default_workflow_id: str = "flux-dev-simple"

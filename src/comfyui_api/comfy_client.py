@@ -4,6 +4,8 @@ from typing import Any
 
 import httpx
 
+class AssetUnavailableError(RuntimeError):
+    pass
 
 class ComfyUIClient:
     def __init__(self, base_url: str) -> None:
@@ -58,14 +60,57 @@ class ComfyUIClient:
             )
         return data
 
-    def view_file(self, filename: str, subfolder: str = "", folder_type: str = "output") -> bytes:
+    @staticmethod
+    def _asset_params(filename: str, subfolder: str = "", folder_type: str = "output") -> dict[str, str]:
         params = {"filename": filename, "type": folder_type}
         if subfolder:
             params["subfolder"] = subfolder
+        return params
 
+    @staticmethod
+    def _asset_ref(filename: str, subfolder: str = "", folder_type: str = "output") -> str:
+        subfolder_part = f", subfolder={subfolder!r}" if subfolder else ""
+        return f"filename={filename!r}{subfolder_part}, type={folder_type!r}"
+
+    def view_file(self, filename: str, subfolder: str = "", folder_type: str = "output") -> bytes:
+        params = self._asset_params(filename=filename, subfolder=subfolder, folder_type=folder_type)
         response = self.client.get("/view", params=params)
+        if response.status_code == 404:
+            raise AssetUnavailableError(
+                f"ComfyUI /view returned 404 for {self._asset_ref(filename, subfolder, folder_type)}"
+            )
         response.raise_for_status()
         return response.content
+
+
+    def view_file_with_retry(
+        self,
+        filename: str,
+        subfolder: str = "",
+        folder_type: str = "output",
+        *,
+        attempts: int = 1,
+        delay_s: float = 0.0,
+    ) -> bytes:
+        attempts = max(1, attempts)
+        last_exc: AssetUnavailableError | None = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                return self.view_file(
+                    filename=filename,
+                    subfolder=subfolder,
+                    folder_type=folder_type,
+                )
+            except AssetUnavailableError as exc:
+                last_exc = exc
+                if attempt >= attempts:
+                    break
+                time.sleep(max(0.0, delay_s))
+
+        raise AssetUnavailableError(
+            f"{last_exc}; retried /view {attempts} time(s) with delay_s={delay_s}"
+        )
 
     def upload_image(
         self,

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -27,6 +27,7 @@ class TextToImageRequest(BaseModel):
     height: int = Field(default=512, ge=64, le=3840)
     cfg: float = Field(default=4.0, ge=1.0, le=30.0)
     denoise: float = Field(default=1.0, ge=0.0, le=1.0)
+    photo_lora_strength: Optional[float] = None
     workflow_id: str | None = None
     checkpoint_name: str | None = None
     content_filter: ContentFilterSettings = Field(default_factory=ContentFilterSettings)

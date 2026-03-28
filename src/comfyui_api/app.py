@@ -2,6 +2,7 @@ import base64
 import binascii
 import mimetypes
 import secrets
+import time
 import tempfile
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -11,7 +12,7 @@ from threading import Lock
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
 from comfyui_api import __version__
-from comfyui_api.comfy_client import ComfyUIClient
+from comfyui_api.comfy_client import ComfyUIClient, AssetUnavailableError
 from comfyui_api.job_store import JobStore
 from comfyui_api.models import (
     ContentFilterSettings,
@@ -62,12 +63,6 @@ def _materialize_assets(
     blurred = False
 
     for asset in assets:
-        raw = comfy.view_file(
-            filename=asset["filename"],
-            subfolder=asset.get("subfolder", ""),
-            folder_type=asset.get("type", "output"),
-        )
-
         generated_path = None
         if settings.comfyui_output_dir and asset.get("type", "output") == "output":
             generated_path = (
@@ -75,6 +70,24 @@ def _materialize_assets(
                 / asset.get("subfolder", "")
                 / asset["filename"]
             )
+
+        try:
+            raw = comfy.view_file_with_retry(
+                filename=asset["filename"],
+                subfolder=asset.get("subfolder", ""),
+                folder_type=asset.get("type", "output"),
+                attempts=settings.view_retry_attempts,
+                delay_s=settings.view_retry_delay_seconds,
+            )
+        except AssetUnavailableError as exc:
+            disk_hint = "unknown"
+            if generated_path is not None:
+                disk_hint = (
+                    f"path={generated_path}, exists={generated_path.exists()}"
+                )
+            raise AssetUnavailableError(
+                f"{exc}; asset={asset}; comfyui_output={disk_hint}"
+            ) from exc
 
         suffix = Path(asset["filename"]).suffix or ".bin"
         mime_type = _guess_mime_type(asset["filename"])
@@ -177,12 +190,16 @@ def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
     status = str((item.get("status") or {}).get("status_str", "")).lower()
 
     if assets and not job.assets and not job.images:
-        rendered_assets, rendered_images, content_filter = _materialize_assets(
-            comfy,
-            assets,
-            job.request_payload.get("content_filter", ContentFilterSettings()),
-            request.app.state.settings,
-        )
+        try:
+            rendered_assets, rendered_images, content_filter = _materialize_assets(
+                comfy,
+                assets,
+                job.request_payload.get("content_filter", ContentFilterSettings()),
+                request.app.state.settings,
+            )
+        except AssetUnavailableError as exc:
+            return jobs.update(job.job_id, status="running", error=str(exc))
+
         return jobs.update(
             job.job_id,
             status="succeeded",
@@ -272,6 +289,12 @@ def _submit_job(
             content_filter=content_filter,
         )
         return job
+    except AssetUnavailableError as exc:
+        jobs.update(job.job_id, status="running", error=str(exc))
+        raise HTTPException(
+            status_code=502,
+            detail=f"Output asset not yet fetchable from ComfyUI /view: {exc}",
+        )
     except TimeoutError as exc:
         jobs.update(job.job_id, status="running", error=str(exc))
         raise HTTPException(status_code=504, detail=str(exc))
