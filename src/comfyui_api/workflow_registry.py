@@ -14,7 +14,8 @@ class WorkflowDefinition:
     kind: str
     cassette_path: Path
     workflow_path: Path
-    input_map: dict[str, list[Any]]
+    input_map: dict[str, Any]
+    optional_input_map: dict[str, Any] = field(default_factory=dict)
     request_schema: dict[str, Any] | bool | None = None
     docs: dict[str, Any] = field(default_factory=dict)
     runtime: dict[str, Any] = field(default_factory=dict)
@@ -65,6 +66,7 @@ class WorkflowRegistry:
                 cassette_path=cassette_path,
                 workflow_path=workflow_path,
                 input_map=raw["inputs"],
+                optional_input_map=raw.get("optional_inputs", {}),
                 request_schema=raw.get("request_schema"),
                 docs=raw.get("docs", {}),
                 runtime=raw.get("runtime", {}),
@@ -97,19 +99,41 @@ class WorkflowRegistry:
         definition = self.get(workflow_id)
         workflow = json.loads(definition.workflow_path.read_text())
 
+        for key, binding in definition.optional_input_map.items():
+            if key not in values or values[key] is None:
+                self._apply_delete(workflow, binding)
+
+
         for key, binding in definition.input_map.items():
             if key in values and values[key] is not None:
-                if (
-                    isinstance(binding, list)
-                    and binding
-                    and all(isinstance(x, list) for x in binding)
-                ):
-                    for path in binding:
-                        self._deep_set(workflow, path, values[key])
-                else:
-                    self._deep_set(workflow, binding, values[key])
+                self._apply_set(workflow, binding, values[key])
 
         return definition, workflow
+
+
+    @staticmethod
+    def _apply_set(obj: dict[str, Any], binding: Any, value: Any) -> None:
+        if (
+            isinstance(binding, list)
+            and binding
+            and all(isinstance(x, list) for x in binding)
+        ):
+            for path in binding:
+                WorkflowRegistry._deep_set(obj, path, value)
+        else:
+            WorkflowRegistry._deep_set(obj, binding, value)
+
+    @staticmethod
+    def _apply_delete(obj: dict[str, Any], binding: Any) -> None:
+        if (
+            isinstance(binding, list)
+            and binding
+            and all(isinstance(x, list) for x in binding)
+        ):
+            for path in binding:
+                WorkflowRegistry._deep_delete(obj, path)
+        else:
+            WorkflowRegistry._deep_delete(obj, binding)
 
     @staticmethod
     def _deep_set(obj: dict[str, Any], path: list[str], value: Any) -> None:
@@ -117,3 +141,24 @@ class WorkflowRegistry:
         for step in path[:-1]:
             cursor = cursor[step]
         cursor[path[-1]] = value
+
+    @staticmethod
+    def _deep_delete(obj: dict[str, Any], path: list[str]) -> None:
+        cursor = obj
+        for step in path[:-1]:
+            if isinstance(cursor, dict):
+                if step not in cursor:
+                    return
+                cursor = cursor[step]
+            elif isinstance(cursor, list):
+                if not isinstance(step, int) or step >= len(cursor):
+                    return
+                cursor = cursor[step]
+            else:
+                return
+
+        last = path[-1]
+        if isinstance(cursor, dict):
+            cursor.pop(last, None)
+        elif isinstance(cursor, list) and isinstance(last, int) and last < len(cursor):
+            cursor.pop(last)

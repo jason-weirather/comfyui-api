@@ -85,6 +85,16 @@
       },
       "description": "Maps friendly API input names to one or more paths inside the ComfyUI workflow JSON."
     },
+    "optional_inputs": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/inputBinding"
+      },
+      "description": "Paths to delete from the workflow JSON when the corresponding input is omitted or null."
+    },
     "models_required": {
       "$ref": "#/$defs/modelsRequired"
     },

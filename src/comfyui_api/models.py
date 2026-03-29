@@ -61,6 +61,33 @@ class ImageToVideoRequest(BaseModel):
             raise ValueError("value must not be empty")
         return value
 
+
+class ImageEditRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    image1_base64: str = Field(..., min_length=1)
+    image1_filename: str = Field(default="image1.png", min_length=1)
+    image2_base64: str | None = None
+    image2_filename: str = Field(default="image2.png", min_length=1)
+    image3_base64: str | None = None
+    image3_filename: str = Field(default="image3.png", min_length=1)
+    seed: int | None = Field(default=None, ge=0, le=9223372036854775807)
+    steps: int = Field(default=4, ge=1)
+    cfg: float = Field(default=1.0, ge=0.0, le=30.0)
+    denoise: float = Field(default=1.0, ge=0.0, le=1.0)
+    unet_name: str | None = None
+    clip_name: str | None = None
+    vae_name: str | None = None
+    lightning_lora_name: str | None = None
+    workflow_id: str | None = None
+    content_filter: ContentFilterSettings = Field(default_factory=ContentFilterSettings)
+
+    @field_validator("prompt", "image1_base64")
+    @classmethod
+    def value_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must not be empty")
+        return value
+
 JobStatus = Literal["created", "queued", "running", "succeeded", "failed"]
 MediaKind = Literal["image", "video", "audio", "binary"]
 

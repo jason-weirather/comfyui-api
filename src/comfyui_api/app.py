@@ -18,6 +18,7 @@ from comfyui_api.models import (
     ContentFilterSettings,
     GeneratedAsset,
     GeneratedImage,
+    ImageEditRequest,
     ImageToVideoRequest,
     JobRecord,
     TextToImageRequest,
@@ -172,6 +173,18 @@ def _upload_input_image(
     return response.get("name", upload_name)
 
 
+def _maybe_upload_input_image(
+    comfy: ComfyUIClient,
+    image_base64: str | None,
+    image_filename: str,
+) -> str | None:
+    if image_base64 is None:
+        return None
+    return _upload_input_image(
+        comfy=comfy,
+        image_base64=image_base64,
+        image_filename=image_filename,
+    )
 
 def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
     if job.status in {"succeeded", "failed"} or not job.prompt_id:
@@ -421,6 +434,74 @@ def create_app() -> FastAPI:
             "cfg": payload.cfg,
             "image_strength": payload.image_strength,
             "img_compression": payload.img_compression,
+        }
+
+        return _submit_job(
+            request,
+            workflow_id=workflow_id,
+            request_payload=request_payload,
+            build_values=build_values,
+            wait=wait,
+            filter_settings=payload.content_filter,
+        )
+
+
+    @app.post("/v1/jobs/image2image", response_model=JobRecord, dependencies=[Depends(require_api_key)])
+    @app.post("/v1/jobs/image-edit", response_model=JobRecord, dependencies=[Depends(require_api_key)])
+    def create_image_edit_job(
+        payload: ImageEditRequest,
+        request: Request,
+        wait: bool = Query(default=True),
+    ):
+        comfy: ComfyUIClient = request.app.state.comfy
+
+        workflow_id = payload.workflow_id or "qwen-image-edit-2509"
+        effective_seed = payload.seed if payload.seed is not None else secrets.randbelow(9223372036854775807)
+
+        try:
+            uploaded_image1 = _upload_input_image(
+                comfy,
+                image_base64=payload.image1_base64,
+                image_filename=payload.image1_filename,
+            )
+            uploaded_image2 = _maybe_upload_input_image(
+                comfy,
+                image_base64=payload.image2_base64,
+                image_filename=payload.image2_filename,
+            )
+            uploaded_image3 = _maybe_upload_input_image(
+                comfy,
+                image_base64=payload.image3_base64,
+                image_filename=payload.image3_filename,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        request_payload = payload.model_dump(
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"image1_base64", "image2_base64", "image3_base64"},
+        )
+        request_payload["image1"] = uploaded_image1
+        if uploaded_image2 is not None:
+            request_payload["image2"] = uploaded_image2
+        if uploaded_image3 is not None:
+            request_payload["image3"] = uploaded_image3
+        request_payload["seed"] = effective_seed
+
+        build_values = {
+            "prompt": payload.prompt,
+            "image1": uploaded_image1,
+            "image2": uploaded_image2,
+            "image3": uploaded_image3,
+            "seed": effective_seed,
+            "steps": payload.steps,
+            "cfg": payload.cfg,
+            "denoise": payload.denoise,
+            "unet_name": payload.unet_name,
+            "clip_name": payload.clip_name,
+            "vae_name": payload.vae_name,
+            "lightning_lora_name": payload.lightning_lora_name,
         }
 
         return _submit_job(
