@@ -393,6 +393,7 @@ def create_app() -> FastAPI:
 
         request_payload = payload.model_dump(exclude_none=True, exclude_unset=True)
         request_payload["seed"] = effective_seed
+        request_payload["use_image2"] = uploaded_image2 is not None
 
         build_values = _build_values_from_request_payload(request_payload)
 
