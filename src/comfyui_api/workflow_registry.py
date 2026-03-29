@@ -98,18 +98,30 @@ class WorkflowRegistry:
     def build(self, workflow_id: str, values: dict[str, Any]) -> tuple[WorkflowDefinition, dict[str, Any]]:
         definition = self.get(workflow_id)
         workflow = json.loads(definition.workflow_path.read_text())
+        resolved_values = self._schema_defaults(definition.request_schema)
+        resolved_values.update({k: v for k, v in values.items() if v is not None})
 
         for key, binding in definition.optional_input_map.items():
-            if key not in values or values[key] is None:
+            if key not in resolved_values or resolved_values[key] is None:
                 self._apply_delete(workflow, binding)
 
 
         for key, binding in definition.input_map.items():
-            if key in values and values[key] is not None:
-                self._apply_set(workflow, binding, values[key])
+            if key in resolved_values and resolved_values[key] is not None:
+                self._apply_set(workflow, binding, resolved_values[key])
 
         return definition, workflow
 
+
+    @staticmethod
+    def _schema_defaults(schema: dict[str, Any] | bool | None) -> dict[str, Any]:
+        if not isinstance(schema, dict):
+            return {}
+        defaults: dict[str, Any] = {}
+        for key, spec in (schema.get("properties") or {}).items():
+            if isinstance(spec, dict) and "default" in spec:
+                defaults[key] = spec["default"]
+        return defaults
 
     @staticmethod
     def _apply_set(obj: dict[str, Any], binding: Any, value: Any) -> None:

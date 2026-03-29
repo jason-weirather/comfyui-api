@@ -20,13 +20,13 @@ def disabled_content_filter() -> ContentFilterSettings:
 
 class TextToImageRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
-    negative_prompt: str = ""
+    negative_prompt: str | None = None
     seed: int | None = Field(default=None, ge=0, le=9223372036854775807)
-    steps: int = Field(default=30, ge=1)
-    width: int = Field(default=512, ge=64, le=3840)
-    height: int = Field(default=512, ge=64, le=3840)
-    cfg: float = Field(default=4.0, ge=1.0, le=30.0)
-    denoise: float = Field(default=1.0, ge=0.0, le=1.0)
+    steps: int | None = Field(default=None, ge=1)
+    width: int | None = Field(default=None, ge=64, le=3840)
+    height: int | None = Field(default=None, ge=64, le=3840)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
+    denoise: float | None = Field(default=None, ge=0.0, le=1.0)
     photo_lora_strength: Optional[float] = None
     workflow_id: str | None = None
     checkpoint_name: str | None = None
@@ -44,13 +44,13 @@ class ImageToVideoRequest(BaseModel):
     image_base64: str = Field(..., min_length=1)
     image_filename: str = Field(default="input.png", min_length=1)
     seed: int | None = Field(default=None, ge=0, le=9223372036854775807)
-    width: int = Field(default=1280, ge=64, le=3840)
-    height: int = Field(default=720, ge=64, le=3840)
-    frames: int = Field(default=121, ge=1, le=4096)
-    fps: int = Field(default=25, ge=1, le=120)
-    cfg: float = Field(default=1.0, ge=1.0, le=30.0)
-    image_strength: float = Field(default=1.0, ge=0.0, le=1.0)
-    img_compression: int = Field(default=33, ge=0, le=100)
+    width: int | None = Field(default=None, ge=64, le=3840)
+    height: int | None = Field(default=None, ge=64, le=3840)
+    frames: int | None = Field(default=None, ge=1, le=4096)
+    fps: int | None = Field(default=None, ge=1, le=120)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
+    image_strength: float | None = Field(default=None, ge=0.0, le=1.0)
+    img_compression: int | None = Field(default=None, ge=0, le=100)
     workflow_id: str | None = None
     content_filter: ContentFilterSettings = Field(default_factory=disabled_content_filter)
 
@@ -71,9 +71,9 @@ class ImageEditRequest(BaseModel):
     image3_base64: str | None = None
     image3_filename: str = Field(default="image3.png", min_length=1)
     seed: int | None = Field(default=None, ge=0, le=9223372036854775807)
-    steps: int = Field(default=4, ge=1)
-    cfg: float = Field(default=1.0, ge=0.0, le=30.0)
-    denoise: float = Field(default=1.0, ge=0.0, le=1.0)
+    steps: int | None = Field(default=None, ge=1)
+    cfg: float | None = Field(default=None, ge=0.0, le=30.0)
+    denoise: float | None = Field(default=None, ge=0.0, le=1.0)
     unet_name: str | None = None
     clip_name: str | None = None
     vae_name: str | None = None

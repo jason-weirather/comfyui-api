@@ -186,6 +186,21 @@ def _maybe_upload_input_image(
         image_filename=image_filename,
     )
 
+
+def _build_values_from_request_payload(
+    request_payload: dict,
+    *,
+    exclude_keys: set[str] | None = None,
+) -> dict:
+    exclude = {"workflow_id", "content_filter"}
+    if exclude_keys:
+        exclude |= set(exclude_keys)
+    return {
+        k: v
+        for k, v in request_payload.items()
+        if k not in exclude
+    }
+
 def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
     if job.status in {"succeeded", "failed"} or not job.prompt_id:
         return job
@@ -379,11 +394,7 @@ def create_app() -> FastAPI:
         request_payload = payload.model_dump(exclude_none=True, exclude_unset=True)
         request_payload["seed"] = effective_seed
 
-        build_values = {
-            k: v
-            for k, v in request_payload.items()
-            if k not in {"workflow_id", "content_filter"}
-        }
+        build_values = _build_values_from_request_payload(request_payload)
 
         return _submit_job(
             request,
@@ -423,18 +434,10 @@ def create_app() -> FastAPI:
         request_payload["image"] = uploaded_name
         request_payload["seed"] = effective_seed
 
-        build_values = {
-            "prompt": payload.prompt,
-            "image": uploaded_name,
-            "seed": effective_seed,
-            "width": payload.width,
-            "height": payload.height,
-            "frames": payload.frames,
-            "fps": payload.fps,
-            "cfg": payload.cfg,
-            "image_strength": payload.image_strength,
-            "img_compression": payload.img_compression,
-        }
+        build_values = _build_values_from_request_payload(
+            request_payload,
+            exclude_keys={"image_filename"},
+        )
 
         return _submit_job(
             request,
@@ -489,20 +492,10 @@ def create_app() -> FastAPI:
             request_payload["image3"] = uploaded_image3
         request_payload["seed"] = effective_seed
 
-        build_values = {
-            "prompt": payload.prompt,
-            "image1": uploaded_image1,
-            "image2": uploaded_image2,
-            "image3": uploaded_image3,
-            "seed": effective_seed,
-            "steps": payload.steps,
-            "cfg": payload.cfg,
-            "denoise": payload.denoise,
-            "unet_name": payload.unet_name,
-            "clip_name": payload.clip_name,
-            "vae_name": payload.vae_name,
-            "lightning_lora_name": payload.lightning_lora_name,
-        }
+        build_values = _build_values_from_request_payload(
+            request_payload,
+            exclude_keys={"image1_filename", "image2_filename", "image3_filename"},
+        )
 
         return _submit_job(
             request,
