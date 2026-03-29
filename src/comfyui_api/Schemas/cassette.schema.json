@@ -95,6 +95,28 @@
       },
       "description": "Paths to delete from the workflow JSON when the corresponding input is omitted or null."
     },
+    "presence_inputs": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Automatically sets an input to true/false based on whether another input is present."
+    },
+    "fallback_inputs": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "If the target input is absent, copy the value from another input."
+    },
     "models_required": {
       "$ref": "#/$defs/modelsRequired"
     },

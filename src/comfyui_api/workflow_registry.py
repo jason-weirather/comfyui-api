@@ -101,6 +101,19 @@ class WorkflowRegistry:
         resolved_values = self._schema_defaults(definition.request_schema)
         resolved_values.update({k: v for k, v in values.items() if v is not None})
 
+        presence_source_values = dict(resolved_values)
+        for target, source in definition.presence_input_map.items():
+            if target not in resolved_values:
+                resolved_values[target] = (
+                    source in presence_source_values
+                    and presence_source_values[source] is not None
+                )
+
+        for target, source in definition.fallback_input_map.items():
+            if target not in resolved_values or resolved_values[target] is None:
+                if source in resolved_values and resolved_values[source] is not None:
+                    resolved_values[target] = resolved_values[source]
+
         for key, binding in definition.optional_input_map.items():
             if key not in resolved_values or resolved_values[key] is None:
                 self._apply_delete(workflow, binding)
