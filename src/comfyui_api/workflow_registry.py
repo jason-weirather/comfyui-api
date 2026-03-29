@@ -16,6 +16,8 @@ class WorkflowDefinition:
     workflow_path: Path
     input_map: dict[str, Any]
     optional_input_map: dict[str, Any] = field(default_factory=dict)
+    presence_input_map: dict[str, str] = field(default_factory=dict)
+    fallback_input_map: dict[str, str] = field(default_factory=dict)
     request_schema: dict[str, Any] | bool | None = None
     docs: dict[str, Any] = field(default_factory=dict)
     runtime: dict[str, Any] = field(default_factory=dict)
@@ -67,6 +69,8 @@ class WorkflowRegistry:
                 workflow_path=workflow_path,
                 input_map=raw["inputs"],
                 optional_input_map=raw.get("optional_inputs", {}),
+                presence_input_map=raw.get("presence_inputs", {}),
+                fallback_input_map=raw.get("fallback_inputs", {}),
                 request_schema=raw.get("request_schema"),
                 docs=raw.get("docs", {}),
                 runtime=raw.get("runtime", {}),
