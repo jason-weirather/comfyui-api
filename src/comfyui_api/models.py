@@ -63,7 +63,7 @@ class ImageToVideoRequest(BaseModel):
 
 
 class ImageEditRequest(BaseModel):
-    prompt: str = Field(..., min_length=1)
+    prompt: str | None = Field(default=None, min_length=1)
     image1_base64: str = Field(..., min_length=1)
     image1_filename: str = Field(default="image1.png", min_length=1)
     image2_base64: str | None = None
@@ -80,14 +80,24 @@ class ImageEditRequest(BaseModel):
     lightning_lora_name: str | None = None
     workflow_id: str | None = None
     content_filter: ContentFilterSettings = Field(default_factory=ContentFilterSettings)
+    multi_angle_lora_name: str | None = None
+    megapixels: float | None = Field(default=None, gt=0)
 
-    @field_validator("prompt", "image1_base64")
+
+    @field_validator("image1_base64")
     @classmethod
     def value_must_not_be_blank(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("value must not be empty")
         return value
 
+
+    @field_validator("prompt")
+    @classmethod
+    def prompt_must_not_be_blank_if_present(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("prompt must not be empty")
+        return value
 JobStatus = Literal["created", "queued", "running", "succeeded", "failed"]
 MediaKind = Literal["image", "video", "audio", "binary"]
 
@@ -95,6 +105,11 @@ class GeneratedImage(BaseModel):
     filename: str
     subfolder: str = ""
     type: str = "output"
+    source_node_id: str | None = None
+    output_id: str | None = None
+    label: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     image_base64: str
 
 
@@ -102,6 +117,11 @@ class GeneratedAsset(BaseModel):
     filename: str
     subfolder: str = ""
     type: str = "output"
+    source_node_id: str | None = None
+    output_id: str | None = None
+    label: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     media_kind: MediaKind
     mime_type: str
     data_base64: str

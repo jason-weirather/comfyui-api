@@ -120,6 +120,9 @@
     "models_required": {
       "$ref": "#/$defs/modelsRequired"
     },
+    "outputs": {
+      "$ref": "#/$defs/outputs"
+    },
     "runtime": {
       "$ref": "#/$defs/runtime"
     },
@@ -228,6 +231,39 @@
       },
       "additionalProperties": {
         "$ref": "#/$defs/stringList"
+      }
+    },
+    "outputDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node"],
+      "properties": {
+        "node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_kind": {
+          "type": "string",
+          "enum": ["image", "video", "audio", "binary"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/$defs/stringList"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/outputDefinition"
       }
     },
     "contentFilter": {

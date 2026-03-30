@@ -54,8 +54,31 @@ def _materialize_assets(
     assets: list[dict],
     filter_settings,
     settings: Settings,
+    output_map: dict | None = None,
 ) -> tuple[list[GeneratedAsset], list[GeneratedImage], dict]:
     filter_settings_dict = _normalize_filter_settings(filter_settings)
+    output_map = output_map or {}
+
+    ordered_outputs = list(output_map.items())
+    node_order = {
+        spec.get("node"): idx
+        for idx, (_, spec) in enumerate(ordered_outputs)
+        if isinstance(spec, dict) and spec.get("node")
+    }
+    output_by_node = {
+        spec.get("node"): (output_id, spec)
+        for output_id, spec in ordered_outputs
+        if isinstance(spec, dict) and spec.get("node")
+    }
+
+    assets = sorted(
+        assets,
+        key=lambda a: (
+            node_order.get(a.get("source_node_id"), 10**9),
+            a.get("source_output_index", 0),
+            a.get("filename", ""),
+        ),
+    )
 
     rendered_assets: list[GeneratedAsset] = []
     rendered_images: list[GeneratedImage] = []
@@ -64,6 +87,15 @@ def _materialize_assets(
     blurred = False
 
     for asset in assets:
+        output_id = None
+        output_spec = None
+        source_node_id = asset.get("source_node_id")
+        if source_node_id in output_by_node:
+            output_id, output_spec = output_by_node[source_node_id]
+        output_spec = output_spec or {}
+        output_label = output_spec.get("label")
+        output_tags = list(output_spec.get("tags") or [])
+        output_metadata = dict(output_spec.get("metadata") or {})
         generated_path = None
         if settings.comfyui_output_dir and asset.get("type", "output") == "output":
             generated_path = (
@@ -115,6 +147,11 @@ def _materialize_assets(
                     filename=asset["filename"],
                     subfolder=asset.get("subfolder", ""),
                     type=asset.get("type", "output"),
+                    source_node_id=source_node_id,
+                    output_id=output_id,
+                    label=output_label,
+                    tags=output_tags,
+                    metadata=output_metadata,
                     media_kind=media_kind,
                     mime_type=mime_type,
                     data_base64=encoded,
@@ -126,6 +163,11 @@ def _materialize_assets(
                         filename=asset["filename"],
                         subfolder=asset.get("subfolder", ""),
                         type=asset.get("type", "output"),
+                        source_node_id=source_node_id,
+                        output_id=output_id,
+                        label=output_label,
+                        tags=output_tags,
+                        metadata=output_metadata,
                         image_base64=encoded,
                     )
                 )
@@ -219,11 +261,13 @@ def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
 
     if assets and not job.assets and not job.images:
         try:
+            definition = request.app.state.registry.get(job.workflow_id)
             rendered_assets, rendered_images, content_filter = _materialize_assets(
                 comfy,
                 assets,
                 job.request_payload.get("content_filter", ContentFilterSettings()),
                 request.app.state.settings,
+                definition.output_map,
             )
         except AssetUnavailableError as exc:
             return jobs.update(job.job_id, status="running", error=str(exc))
@@ -274,7 +318,7 @@ def _submit_job(
         job = jobs.create(workflow_id=workflow_id, request_payload=request_payload)
 
         try:
-            _, workflow = registry.build(
+            definition, workflow = registry.build(
                 workflow_id=workflow_id,
                 values=build_values,
             )
@@ -307,6 +351,7 @@ def _submit_job(
             assets,
             filter_settings,
             settings,
+            definition.output_map,
         )
         job = jobs.update(
             job.job_id,
@@ -460,6 +505,18 @@ def create_app() -> FastAPI:
 
         workflow_id = payload.workflow_id or "qwen-image-edit-2509"
         effective_seed = payload.seed if payload.seed is not None else secrets.randbelow(9223372036854775807)
+
+
+        validation_payload = payload.model_dump(
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"workflow_id", "content_filter", "image1_filename", "image2_filename", "image3_filename"},
+        )
+        validation_payload["seed"] = effective_seed
+        try:
+            request.app.state.registry.validate_request(workflow_id, validation_payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
         try:
             uploaded_image1 = _upload_input_image(

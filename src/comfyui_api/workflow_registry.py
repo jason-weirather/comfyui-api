@@ -23,6 +23,7 @@ class WorkflowDefinition:
     runtime: dict[str, Any] = field(default_factory=dict)
     aliases: list[str] = field(default_factory=list)
     models_required: dict[str, list[str]] = field(default_factory=dict)
+    output_map: dict[str, Any] = field(default_factory=dict)
 
 class WorkflowRegistry:
     def __init__(self, cassette_dir: Path, cassette_schema_path: Path | None = None) -> None:
@@ -76,11 +77,25 @@ class WorkflowRegistry:
                 runtime=raw.get("runtime", {}),
                 aliases=raw.get("aliases", []),
                 models_required=raw.get("models_required", {}),
+                output_map=raw.get("outputs", {}),
             )
             self._definitions[definition.id] = definition
 
         if not self._definitions:
             raise RuntimeError(f"No cassettes found in {self.cassette_dir}")
+
+    def validate_request(self, workflow_id: str, values: dict[str, Any]) -> dict[str, Any]:
+        definition = self.get(workflow_id)
+        resolved_values = self._schema_defaults(definition.request_schema)
+        resolved_values.update({k: v for k, v in values.items() if v is not None})
+
+        if isinstance(definition.request_schema, dict):
+            try:
+                validate(resolved_values, definition.request_schema)
+            except ValidationError as exc:
+                raise ValueError(f"Invalid request for workflow '{workflow_id}': {exc.message}") from exc
+
+        return resolved_values
 
     def summary(self) -> list[dict[str, str]]:
         return [
