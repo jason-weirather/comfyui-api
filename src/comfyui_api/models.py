@@ -28,6 +28,7 @@ class TextToImageRequest(BaseModel):
     cfg: float | None = Field(default=None, ge=0.0, le=30.0)
     denoise: float | None = Field(default=None, ge=0.0, le=1.0)
     photo_lora_strength: Optional[float] = None
+    illustration_lora_strength: Optional[float] = None
     workflow_id: str | None = None
     checkpoint_name: str | None = None
     content_filter: ContentFilterSettings = Field(default_factory=ContentFilterSettings)
@@ -78,6 +79,8 @@ class ImageEditRequest(BaseModel):
     clip_name: str | None = None
     vae_name: str | None = None
     lightning_lora_name: str | None = None
+    photo_lora_strength: Optional[float] = None
+    illustration_lora_strength: Optional[float] = None
     workflow_id: str | None = None
     content_filter: ContentFilterSettings = Field(default_factory=ContentFilterSettings)
     multi_angle_lora_name: str | None = None
