@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 def utcnow() -> datetime:
@@ -19,6 +19,8 @@ def disabled_content_filter() -> ContentFilterSettings:
     return ContentFilterSettings(level=0, blur=False)
 
 class TextToImageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     prompt: str = Field(..., min_length=1)
     negative_prompt: str | None = None
     seed: int | None = Field(default=None, ge=0, le=9223372036854775807)
