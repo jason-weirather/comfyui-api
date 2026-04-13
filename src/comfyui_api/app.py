@@ -71,6 +71,14 @@ def _materialize_assets(
         if isinstance(spec, dict) and spec.get("node")
     }
 
+    if output_by_node:
+        assets = [
+            asset
+            for asset in assets
+            if str(asset.get("source_node_id")) in output_by_node
+        ]
+
+
     assets = sorted(
         assets,
         key=lambda a: (
@@ -243,6 +251,50 @@ def _build_values_from_request_payload(
         if k not in exclude
     }
 
+def _declared_output_nodes(output_map: dict | None) -> list[str]:
+    if not output_map:
+        return []
+    nodes: list[str] = []
+    for _, spec in output_map.items():
+        if isinstance(spec, dict) and spec.get("node"):
+            nodes.append(str(spec["node"]))
+    return nodes
+
+def _filter_and_sort_assets_for_declared_outputs(
+    assets: list[dict],
+    output_map: dict | None,
+) -> list[dict]:
+    ordered_nodes = _declared_output_nodes(output_map)
+    if not ordered_nodes:
+        return list(assets)
+
+    node_order = {node_id: idx for idx, node_id in enumerate(ordered_nodes)}
+    return sorted(
+        [
+            asset
+            for asset in assets
+            if str(asset.get("source_node_id")) in node_order
+        ],
+        key=lambda a: (
+            node_order[str(a.get("source_node_id"))],
+            a.get("source_output_index", 0),
+            a.get("filename", ""),
+        ),
+    )
+
+def _declared_outputs_ready(assets: list[dict], output_map: dict | None) -> bool:
+    ordered_nodes = _declared_output_nodes(output_map)
+    if not ordered_nodes:
+        return bool(assets)
+
+    present_nodes = {
+        str(asset.get("source_node_id"))
+        for asset in assets
+        if asset.get("source_node_id") is not None
+    }
+    return set(ordered_nodes).issubset(present_nodes)
+
+
 def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
     if job.status in {"succeeded", "failed"} or not job.prompt_id:
         return job
@@ -256,15 +308,25 @@ def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
     if not item:
         return job
 
-    assets = comfy.extract_output_assets(item)
+    definition = request.app.state.registry.get(job.workflow_id)
+    declared_output_nodes = _declared_output_nodes(definition.output_map)
+    assets = comfy.extract_output_assets(
+        item,
+        allowed_node_ids=declared_output_nodes or None,
+    )
     status = str((item.get("status") or {}).get("status_str", "")).lower()
 
     if assets and not job.assets and not job.images:
+        if not _declared_outputs_ready(assets, definition.output_map):
+            return jobs.update(job.job_id, status="running")
         try:
-            definition = request.app.state.registry.get(job.workflow_id)
+            filtered_assets = _filter_and_sort_assets_for_declared_outputs(
+                assets,
+                definition.output_map,
+            )
             rendered_assets, rendered_images, content_filter = _materialize_assets(
                 comfy,
-                assets,
+                filtered_assets,
                 job.request_payload.get("content_filter", ContentFilterSettings()),
                 request.app.state.settings,
                 definition.output_map,
@@ -275,7 +337,7 @@ def _refresh_job(request: Request, job: JobRecord) -> JobRecord:
         return jobs.update(
             job.job_id,
             status="succeeded",
-            output_assets=assets,
+            output_assets=filtered_assets,
             assets=rendered_assets,
             images=rendered_images,
             content_filter=content_filter,
@@ -338,17 +400,27 @@ def _submit_job(
         return job
 
     job = jobs.update(job.job_id, status="running")
+    declared_output_nodes = _declared_output_nodes(definition.output_map)
 
     try:
         history_item = comfy.wait_for_completion(
             prompt_id=job.prompt_id,
             timeout_s=settings.wait_timeout_seconds,
             poll_interval_s=settings.poll_interval_seconds,
+            allowed_node_ids=declared_output_nodes or None,
+            require_all_allowed_nodes=bool(declared_output_nodes),
         )
-        assets = comfy.extract_output_assets(history_item)
+        assets = comfy.extract_output_assets(
+            history_item,
+            allowed_node_ids=declared_output_nodes or None,
+        )
+        filtered_assets = _filter_and_sort_assets_for_declared_outputs(
+            assets,
+            definition.output_map,
+        )
         rendered_assets, rendered_images, content_filter = _materialize_assets(
             comfy,
-            assets,
+            filtered_assets,
             filter_settings,
             settings,
             definition.output_map,
@@ -356,7 +428,7 @@ def _submit_job(
         job = jobs.update(
             job.job_id,
             status="succeeded",
-            output_assets=assets,
+            output_assets=filtered_assets,
             assets=rendered_assets,
             images=rendered_images,
             content_filter=content_filter,

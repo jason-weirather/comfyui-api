@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Any
+from typing import Any, Iterable
 
 import httpx
 
@@ -140,18 +140,38 @@ class ComfyUIClient:
         prompt_id: str,
         timeout_s: int,
         poll_interval_s: float,
+        *,
+        allowed_node_ids: Iterable[str] | None = None,
+        require_all_allowed_nodes: bool = False,
     ) -> dict[str, Any]:
         deadline = time.monotonic() + timeout_s
+        allowed_nodes = (
+            {str(node_id) for node_id in allowed_node_ids}
+            if allowed_node_ids is not None
+            else None
+        )
 
         while time.monotonic() < deadline:
             history = self.get_history(prompt_id)
             if prompt_id in history:
                 item = history[prompt_id]
                 status = (item.get("status") or {}).get("status_str", "")
-                outputs = self.extract_output_assets(item)
+                outputs = self.extract_output_assets(
+                    item,
+                    allowed_node_ids=allowed_nodes,
+                )
 
                 if outputs:
-                    return item
+                    if require_all_allowed_nodes and allowed_nodes:
+                        present_nodes = {
+                            str(asset.get("source_node_id"))
+                            for asset in outputs
+                            if asset.get("source_node_id") is not None
+                        }
+                        if allowed_nodes.issubset(present_nodes):
+                            return item
+                    else:
+                        return item
 
                 if str(status).lower() == "error":
                     raise RuntimeError(
@@ -163,16 +183,28 @@ class ComfyUIClient:
         raise TimeoutError(f"Timed out waiting for prompt_id={prompt_id}")
 
     @staticmethod
-    def extract_output_assets(history_item: dict[str, Any]) -> list[dict[str, Any]]:
+    def extract_output_assets(
+        history_item: dict[str, Any],
+        *,
+        allowed_node_ids: Iterable[str] | None = None,
+    ) -> list[dict[str, Any]]:
         assets: list[dict[str, Any]] = []
+        allowed_nodes = (
+            {str(node_id) for node_id in allowed_node_ids}
+            if allowed_node_ids is not None
+            else None
+        )
         for node_id, node_output in (history_item.get("outputs") or {}).items():
+            node_id_str = str(node_id)
+            if allowed_nodes is not None and node_id_str not in allowed_nodes:
+                continue
             for key in ("images", "gifs", "videos", "audio"):
                 for index, asset in enumerate(node_output.get(key, [])):
                     if isinstance(asset, dict) and "filename" in asset:
                         assets.append(
                             {
                                 **asset,
-                                "source_node_id": str(node_id),
+                                "source_node_id": node_id_str,
                                 "source_output_kind": key,
                                 "source_output_index": index,
                             }
